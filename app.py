@@ -19,7 +19,11 @@ def fetch_mail():
 
     # メールを受信
     cli = MailClient(host_name, user_id, password)
-    resp = cli.fetch_mail(search_option=search_option, timezone=timezone)
+    messages = cli.fetch_mail(search_option=search_option, timezone=timezone)
+    resp = {
+        'status':'OK',
+        'messages':messages
+    }
 
     # 結果を返す
     return json.dumps(resp, ensure_ascii=False)
