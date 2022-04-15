@@ -3,7 +3,7 @@ from chalice import Chalice
 from imap2dict import MailClient
 
 
-app = Chalice(app_name='fm_mail_backend')
+app = Chalice(app_name='fetch_mail_api')
 
 @app.route('/fetch_mail', methods=['POST'], api_key_required=True)
 def fetch_mail():
