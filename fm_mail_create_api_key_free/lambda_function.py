@@ -1,0 +1,47 @@
+import boto3
+import os
+
+# 環境変数
+REGION_NAME = os.environ['REGION_NAME']
+DYNAMODB_TABLE = os.environ['DYNAMODB_TABLE']
+REST_API_ID = os.environ['REST_API_ID']
+USAGE_PLAN_ID = os.environ['USAGE_PLAN_ID']
+
+dynamodb = boto3.resource('dynamodb', region_name=REGION_NAME)
+table = dynamodb.Table(DYNAMODB_TABLE)
+apigateway_cli = boto3.client('apigateway')
+
+
+def lambda_handler(event, context):
+    # ユーザー名をキーとする
+    user_name = event['userName']
+
+    # APIキーを発行
+    result = apigateway_cli.create_api_key(
+        name='fm_mail_free_' + user_name,
+        enabled=True,
+        stageKeys=[
+            {
+                'restApiId': REST_API_ID,
+                'stageName': 'api'
+            }
+        ]
+    )
+
+    # 発行したAPIキーの値とIDを取得
+    api_key = result['value']
+    api_key_id = result['id']
+
+    # APIキーに使用量プランを適用
+    apigateway_cli.create_usage_plan_key(
+        usagePlanId=USAGE_PLAN_ID,
+        keyId=api_key_id,
+        keyType='API_KEY'
+    )
+
+    # DynamoDBにAPIキーを登録
+    with table.batch_writer() as batch:
+        batch.put_item(Item={"UserID": user_name, "Type": "FREE", "ApiKey": api_key})
+
+    # eventを返さないとCognito側で「Unrecognizable lambda output」というエラーになる
+    return event
