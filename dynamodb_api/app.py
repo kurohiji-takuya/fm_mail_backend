@@ -12,17 +12,15 @@ USER_POOL_NAME = os.environ.get('USER_POOL_NAME')
 DYNAMODB_TABLE = os.environ.get('DYNAMODB_TABLE')
 REGION_NAME = os.environ.get('REGION_NAME')
 
-# debug
-app.debug = True
-
+# Cognitで認証する
 authorizer = CognitoUserPoolAuthorizer(
     USER_POOL_NAME,
     provider_arns=[USER_POOL_ARN]
 )
 
+# DynamoDBに接続
 dynamodb = boto3.resource('dynamodb', region_name=REGION_NAME)
-table = dynamodb.Table('FM_Mail_API_Key')
-
+table = dynamodb.Table(DYNAMODB_TABLE)
 
 @app.route('/apikey',authorizer=authorizer, cors=True)
 def get_my_api_key():
