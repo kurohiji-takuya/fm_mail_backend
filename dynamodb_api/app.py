@@ -12,7 +12,7 @@ USER_POOL_NAME = os.environ.get('USER_POOL_NAME')
 DYNAMODB_TABLE = os.environ.get('DYNAMODB_TABLE')
 REGION_NAME = os.environ.get('REGION_NAME')
 
-# Cognitで認証する
+# Cognitoで認証する
 authorizer = CognitoUserPoolAuthorizer(
     USER_POOL_NAME,
     provider_arns=[USER_POOL_ARN]
