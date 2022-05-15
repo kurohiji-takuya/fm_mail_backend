@@ -1,3 +1,3 @@
-# fetch_mail_api
+# dynamodb_api
 
-メール受信API
+Dynamo DBにアクセスするためのAPI
