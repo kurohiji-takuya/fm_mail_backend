@@ -6,7 +6,6 @@ import uuid
 from chalice import Chalice, CognitoUserPoolAuthorizer, Response
 
 app = Chalice(app_name='fm_mail_create_api_key_pro')
-app.debug = True
 
 # 環境変数
 USER_POOL_ARN = os.environ.get('USER_POOL_ARN')
