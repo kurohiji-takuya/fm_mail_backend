@@ -10,11 +10,27 @@ USAGE_PLAN_ID = os.environ['USAGE_PLAN_ID']
 dynamodb = boto3.resource('dynamodb', region_name=REGION_NAME)
 table = dynamodb.Table(DYNAMODB_TABLE)
 apigateway_cli = boto3.client('apigateway')
+cognito_cli = boto3.client('cognito-idp')
 
 
 def lambda_handler(event, context):
-    # ユーザー名をキーとする
+    # ユーザー名を取得
     user_name = event['userName']
+
+    # ユーザープールIDを取得
+    user_pool_id = event['userPoolId']
+
+    # ユーザープールのカスタム属性を更新
+    cognito_cli.admin_update_user_attributes(
+        UserPoolId=user_pool_id,
+        Username=user_name,
+        UserAttributes=[
+            {
+                'Name': 'custom:plan_type',
+                'Value': 'FREE'
+            }
+        ]
+    )
 
     # APIキーを発行
     result = apigateway_cli.create_api_key(
@@ -41,7 +57,8 @@ def lambda_handler(event, context):
 
     # DynamoDBにAPIキーを登録
     with table.batch_writer() as batch:
-        batch.put_item(Item={"UserID": user_name, "Type": "FREE", "ApiKey": api_key})
+        batch.put_item(Item={"UserID": user_name,
+                       "Type": "FREE", "ApiKey": api_key})
 
     # eventを返さないとCognito側で「Unrecognizable lambda output」というエラーになる
     return event
