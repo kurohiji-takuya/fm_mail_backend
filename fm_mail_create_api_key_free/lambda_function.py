@@ -28,6 +28,10 @@ def lambda_handler(event, context):
             {
                 'Name': 'custom:plan_type',
                 'Value': 'FREE'
+            },
+            {
+                'Name': 'custom:stripe_session_id',
+                'Value': ''
             }
         ]
     )

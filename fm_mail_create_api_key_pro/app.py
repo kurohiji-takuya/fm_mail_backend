@@ -1,5 +1,7 @@
 import boto3
 from boto3.dynamodb.conditions import Key
+import datetime
+import json
 import os
 import stripe
 import uuid
@@ -10,6 +12,7 @@ app = Chalice(app_name='fm_mail_create_api_key_pro')
 # 環境変数
 USER_POOL_ARN = os.environ.get('USER_POOL_ARN')
 USER_POOL_NAME = os.environ.get('USER_POOL_NAME')
+USER_POOL_ID = os.environ.get('USER_POOL_ID')
 DYNAMODB_API_KEY_TABLE = os.environ.get('DYNAMODB_API_KEY_TABLE')
 DYNAMODB_STRIPE_TABLE = os.environ.get('DYNAMODB_STRIPE_TABLE')
 REGION_NAME = os.environ.get('REGION_NAME')
@@ -35,6 +38,9 @@ stripe_table = dynamodb.Table(DYNAMODB_STRIPE_TABLE)
 
 # API Gatewayの設定用クライアント
 apigateway_cli = boto3.client('apigateway')
+
+# Cognitoの設定用クライアント
+cognito_cli = boto3.client('cognito-idp')
 
 
 @app.route('/create-checkout-session/{lookup_key}/{user_name}', cors=True)
@@ -63,9 +69,15 @@ def create_checkout_session(lookup_key, user_name):
     )
 
     # セッションIDとUserNameをDynamoDBに登録する
+    dt_now_jst = datetime.datetime.now(
+        datetime.timezone(datetime.timedelta(hours=9)))
     with stripe_table.batch_writer() as batch:
         batch.put_item(Item={"SessionID": checkout_session.id,
-                            "UserName": user_name, "PaidFlag": False, "OneTimeKey": one_time_key})
+                             "UserName": user_name,
+                             "PaidFlag": False,
+                             "OneTimeKey": one_time_key,
+                             "CreatedAt": dt_now_jst.strftime("%Y-%m-%d %H:%M:%S"),
+                             "UpdatedAt": dt_now_jst.strftime("%Y-%m-%d %H:%M:%S")})
 
     # Stripeに遷移する
     return Response(
@@ -127,13 +139,33 @@ def create_api_key(session_id, one_time_key):
     # DynamoDBにAPIキーを登録
     with api_key_table.batch_writer() as batch:
         batch.put_item(Item={"UserID": user_name,
-                            "Type": "PRO", "ApiKey": api_key})
+                             "Type": "PRO", "ApiKey": api_key})
 
     # DynamoDBの支払い済みフラグを更新
-    stripe_table.update_item(Key={'SessionID': session_id}, ExpressionAttributeNames={
-                            "#PaidFlag": "PaidFlag"}, ExpressionAttributeValues={":PaidFlag": True}, UpdateExpression="SET #PaidFlag = :PaidFlag")
+    dt_now_jst = datetime.datetime.now(
+        datetime.timezone(datetime.timedelta(hours=9)))
+    stripe_table.update_item(Key={'SessionID': session_id},
+                             ExpressionAttributeNames={
+                                 "#PaidFlag": "PaidFlag", "#UpdatedAt": "UpdatedAt"},
+                             ExpressionAttributeValues={
+                                 ":PaidFlag": True, ":UpdatedAt": dt_now_jst.strftime("%Y-%m-%d %H:%M:%S")},
+                             UpdateExpression="SET #PaidFlag = :PaidFlag, #UpdatedAt = :UpdatedAt")
 
-    # ToDo: ユーザープールのカスタム属性を更新する（user_typeとstripe_session_id）
+    # ユーザープールのカスタム属性を更新
+    cognito_cli.admin_update_user_attributes(
+        UserPoolId=USER_POOL_ID,
+        Username=user_name,
+        UserAttributes=[
+            {
+                'Name': 'custom:plan_type',
+                'Value': 'PRO'
+            },
+            {
+                'Name': 'custom:stripe_session_id',
+                'Value': session_id
+            }
+        ]
+    )
 
     # サンクスページに遷移する
     success_url = MY_DOMAIN + '/thanks_upgrade'
@@ -173,14 +205,17 @@ def create_billing_portal(session_id):
             body='',
             headers={'Location': cancel_url})
 
-    # 請求ポータルに遷移
+    # 請求ポータルのURLを返す
     return_url = MY_DOMAIN + '/thanks_upgrade'
     portal_session = stripe.billing_portal.Session.create(
         customer=checkout_session.customer,
         return_url=return_url,
     )
     billing_portal_url = portal_session.url
-    return Response(
-        status_code=302,
-        body='',
-        headers={'Location': billing_portal_url})
+    resp = {
+        'status': 'OK',
+        'billing_portal_url': billing_portal_url,
+    }
+
+    # 結果を返す
+    return json.dumps(resp, ensure_ascii=False)
