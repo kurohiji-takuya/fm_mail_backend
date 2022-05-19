@@ -195,17 +195,18 @@ def create_billing_portal(session_id):
     user_name = context['authorizer']['claims']['cognito:username']
 
     # DynamoDBからセッションIDに紐づくUserNameを取り出す
-    result = api_key_table.get_item(Key={'SessionId': session_id})
+    result = stripe_table.get_item(Key={'SessionID': session_id})
     user_name_dynamo_db = result['Item']['UserName']
 
-    # 認証情報のUserNameとDynamoDBのUserNameが一致しなければキャンセルページに遷移
+    # 認証情報のUserNameとDynamoDBのUserNameが一致しなければエラーを返す
     if user_name != user_name_dynamo_db:
-        return Response(
-            status_code=302,
-            body='',
-            headers={'Location': cancel_url})
+        resp = {
+            'status': 'Unauthorized',
+            'message': 'Not authorized.',
+        }
+        return json.dumps(resp, ensure_ascii=False)
 
-    # 請求ポータルのURLを返す
+    # 請求ポータルのURLを生成する
     return_url = MY_DOMAIN + '/thanks_upgrade'
     portal_session = stripe.billing_portal.Session.create(
         customer=checkout_session.customer,
