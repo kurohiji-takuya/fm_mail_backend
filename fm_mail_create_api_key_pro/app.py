@@ -207,7 +207,7 @@ def create_billing_portal(session_id):
         return json.dumps(resp, ensure_ascii=False)
 
     # 請求ポータルのURLを生成する
-    return_url = MY_DOMAIN + '/thanks_upgrade'
+    return_url = MY_DOMAIN + '/upgrade'
     portal_session = stripe.billing_portal.Session.create(
         customer=checkout_session.customer,
         return_url=return_url,
