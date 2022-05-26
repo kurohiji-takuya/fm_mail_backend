@@ -26,7 +26,6 @@ def lambda_handler(event, context):
         Username=user_name,
         UserAttributes=[
             {"Name": "custom:plan_type", "Value": "FREE"},
-            {"Name": "custom:stripe_session_id", "Value": ""},
         ],
     )
 

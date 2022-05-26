@@ -145,7 +145,6 @@ def create_api_key(session_id, one_time_key):
         UserAttributes=[
             {"Name": "custom:plan_type", "Value": "PRO"},
             {"Name": "custom:stripe_customer_id", "Value": customer_id},
-            {"Name": "custom:stripe_session_id", "Value": session_id},
         ],
     )
 
