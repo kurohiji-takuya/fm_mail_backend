@@ -93,6 +93,9 @@ def create_api_key(session_id, one_time_key):
     if payment_status != "paid":
         return Response(status_code=302, body="", headers={"Location": cancel_url})
 
+    # カスタマーIDを取得
+    customer_id = checkout_session.customer
+
     # DynamoDBからセッションIDに紐づく情報を取り出す
     result = stripe_table.get_item(Key={"SessionID": session_id})
     user_name = result["Item"]["UserName"]
@@ -141,6 +144,7 @@ def create_api_key(session_id, one_time_key):
         Username=user_name,
         UserAttributes=[
             {"Name": "custom:plan_type", "Value": "PRO"},
+            {"Name": "custom:stripe_customer_id", "Value": customer_id},
             {"Name": "custom:stripe_session_id", "Value": session_id},
         ],
     )
@@ -153,14 +157,8 @@ def create_api_key(session_id, one_time_key):
 
 @app.route("/create-billing-portal/{session_id}", authorizer=authorizer, cors=True)
 def create_billing_portal(session_id):
-    # チェックアウトセッションの状態を確認
+    # チェックアウトセッションを取得
     checkout_session = stripe.checkout.Session.retrieve(session_id)
-    payment_status = checkout_session.payment_status
-
-    # 支払い済みでなければ汎用キャンセルページに遷移
-    if payment_status != "paid":
-        cancel_url = MY_DOMAIN + "/cancel"
-        return Response(status_code=302, body="", headers={"Location": cancel_url})
 
     # 認証情報からUserNameを取り出す
     context = app.current_request.context
@@ -182,6 +180,35 @@ def create_billing_portal(session_id):
     return_url = MY_DOMAIN + "/upgrade"
     portal_session = stripe.billing_portal.Session.create(
         customer=checkout_session.customer,
+        return_url=return_url,
+    )
+    billing_portal_url = portal_session.url
+    resp = {
+        "status": "OK",
+        "billing_portal_url": billing_portal_url,
+    }
+
+    # 結果を返す
+    return json.dumps(resp, ensure_ascii=False)
+
+
+@app.route("/create-billing-portal-by-user", authorizer=authorizer, cors=True)
+def create_billing_portal_by_user():
+    # 認証情報からUserNameを取り出す
+    context = app.current_request.context
+    user_name = context["authorizer"]["claims"]["cognito:username"]
+
+    # ユーザープールのカスタム属性からStripeのカスタマーIDを取得
+    user_info = cognito_cli.admin_get_user(UserPoolId=USER_POOL_ID, Username=user_name)
+    user_attributes = user_info["UserAttributes"]
+    customer_id = [
+        x["Value"] for x in user_attributes if x["Name"] == "custom:stripe_customer_id"
+    ][0]
+
+    # 請求ポータルのURLを生成する
+    return_url = MY_DOMAIN + "/upgrade"
+    portal_session = stripe.billing_portal.Session.create(
+        customer=customer_id,
         return_url=return_url,
     )
     billing_portal_url = portal_session.url
