@@ -155,43 +155,6 @@ def create_api_key(session_id, one_time_key):
     return Response(status_code=302, body="", headers={"Location": success_url})
 
 
-@app.route("/create-billing-portal/{session_id}", authorizer=authorizer, cors=True)
-def create_billing_portal(session_id):
-    # チェックアウトセッションを取得
-    checkout_session = stripe.checkout.Session.retrieve(session_id)
-
-    # 認証情報からUserNameを取り出す
-    context = app.current_request.context
-    user_name = context["authorizer"]["claims"]["cognito:username"]
-
-    # DynamoDBからセッションIDに紐づくUserNameを取り出す
-    result = stripe_table.get_item(Key={"SessionID": session_id})
-    user_name_dynamo_db = result["Item"]["UserName"]
-
-    # 認証情報のUserNameとDynamoDBのUserNameが一致しなければエラーを返す
-    if user_name != user_name_dynamo_db:
-        resp = {
-            "status": "Unauthorized",
-            "message": "Not authorized.",
-        }
-        return json.dumps(resp, ensure_ascii=False)
-
-    # 請求ポータルのURLを生成する
-    return_url = MY_DOMAIN + "/upgrade"
-    portal_session = stripe.billing_portal.Session.create(
-        customer=checkout_session.customer,
-        return_url=return_url,
-    )
-    billing_portal_url = portal_session.url
-    resp = {
-        "status": "OK",
-        "billing_portal_url": billing_portal_url,
-    }
-
-    # 結果を返す
-    return json.dumps(resp, ensure_ascii=False)
-
-
 @app.route("/create-billing-portal-by-user", authorizer=authorizer, cors=True)
 def create_billing_portal_by_user():
     # 認証情報からUserNameを取り出す
