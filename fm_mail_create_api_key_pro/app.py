@@ -13,6 +13,7 @@ USER_POOL_ARN = os.environ.get("USER_POOL_ARN")
 USER_POOL_NAME = os.environ.get("USER_POOL_NAME")
 USER_POOL_ID = os.environ.get("USER_POOL_ID")
 DYNAMODB_API_KEY_TABLE = os.environ.get("DYNAMODB_API_KEY_TABLE")
+DYNAMODB_CUSTOMER_TABLE = os.environ.get("DYNAMODB_CUSTOMER_TABLE")
 DYNAMODB_STRIPE_TABLE = os.environ.get("DYNAMODB_STRIPE_TABLE")
 REGION_NAME = os.environ.get("REGION_NAME")
 STRIPE_API_KEY = os.environ.get("STRIPE_API_KEY")
@@ -30,6 +31,7 @@ authorizer = CognitoUserPoolAuthorizer(USER_POOL_NAME, provider_arns=[USER_POOL_
 # DynamoDBに接続
 dynamodb = boto3.resource("dynamodb", region_name=REGION_NAME)
 api_key_table = dynamodb.Table(DYNAMODB_API_KEY_TABLE)
+customer_table = dynamodb.Table(DYNAMODB_CUSTOMER_TABLE)
 stripe_table = dynamodb.Table(DYNAMODB_STRIPE_TABLE)
 
 # API Gatewayの設定用クライアント
@@ -125,6 +127,16 @@ def create_api_key(session_id, one_time_key):
     # DynamoDBにAPIキーを登録
     with api_key_table.batch_writer() as batch:
         batch.put_item(Item={"UserID": user_name, "Type": "PRO", "ApiKey": api_key})
+
+    # DynamoDBにStripeのカスタマーIDとAPIキーIDを登録
+    with customer_table.batch_writer() as batch:
+        batch.put_item(
+            Item={
+                "CustomerID": customer_id,
+                "UserID": user_name,
+                "APIKeyID": api_key_id,
+            }
+        )
 
     # DynamoDBの支払い済みフラグを更新
     dt_now_jst = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9)))

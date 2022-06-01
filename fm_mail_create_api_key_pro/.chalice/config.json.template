@@ -9,6 +9,7 @@
         "USER_POOL_NAME": "xxxxxxxxxxxx",
         "USER_POOL_ID": "ap-xxxxxxxx-1_xxxxxxxxxx",
         "DYNAMODB_API_KEY_TABLE": "xxxxxxxxxxxx",
+        "DYNAMODB_CUSTOMER_TABLE": "xxxxxxxxxxxx",
         "DYNAMODB_STRIPE_TABLE": "xxxxxxxxxxxx",
         "REGION_NAME": "ap-xxxxxxxxx-1",
         "STRIPE_API_KEY": "sk_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
