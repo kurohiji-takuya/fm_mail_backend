@@ -69,7 +69,7 @@ def create_checkout_session(lookup_key, user_name):
     with stripe_table.batch_writer() as batch:
         batch.put_item(
             Item={
-                "SessionID": checkout_session.id,
+                "SessionId": checkout_session.id,
                 "UserName": user_name,
                 "PaidFlag": False,
                 "OneTimeKey": one_time_key,
@@ -99,7 +99,7 @@ def create_api_key(session_id, one_time_key):
     customer_id = checkout_session.customer
 
     # DynamoDBからセッションIDに紐づく情報を取り出す
-    result = stripe_table.get_item(Key={"SessionID": session_id})
+    result = stripe_table.get_item(Key={"SessionId": session_id})
     user_name = result["Item"]["UserName"]
     paid_flag = result["Item"]["PaidFlag"]
     one_time_key_dynamo_db = result["Item"]["OneTimeKey"]
@@ -126,22 +126,29 @@ def create_api_key(session_id, one_time_key):
 
     # DynamoDBにAPIキーを登録
     with api_key_table.batch_writer() as batch:
-        batch.put_item(Item={"UserID": user_name, "Type": "PRO", "ApiKey": api_key})
+        batch.put_item(
+            Item={
+                "UserId": user_name,
+                "Type": "PRO",
+                "ApiKey": api_key,
+                "ApiKeyId": api_key_id,
+            }
+        )
 
     # DynamoDBにStripeのカスタマーIDとAPIキーIDを登録
     with customer_table.batch_writer() as batch:
         batch.put_item(
             Item={
-                "CustomerID": customer_id,
-                "UserID": user_name,
-                "APIKeyID": api_key_id,
+                "CustomerId": customer_id,
+                "UserId": user_name,
+                "ApiKeyId": api_key_id,
             }
         )
 
     # DynamoDBの支払い済みフラグを更新
     dt_now_jst = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9)))
     stripe_table.update_item(
-        Key={"SessionID": session_id},
+        Key={"SessionId": session_id},
         ExpressionAttributeNames={"#PaidFlag": "PaidFlag", "#UpdatedAt": "UpdatedAt"},
         ExpressionAttributeValues={
             ":PaidFlag": True,

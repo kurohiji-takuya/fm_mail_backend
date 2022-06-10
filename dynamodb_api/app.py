@@ -27,7 +27,7 @@ def get_my_api_key():
     user_name = context["authorizer"]["claims"]["cognito:username"]
 
     # DynamoDBからユーザーに紐づくAPIキーの情報を取り出す
-    result = table.query(KeyConditionExpression=Key("UserID").eq(user_name))
+    result = table.query(KeyConditionExpression=Key("UserId").eq(user_name))
 
     resp = {"status": "OK", "result": result, "UserName": user_name}
 

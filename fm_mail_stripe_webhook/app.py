@@ -49,15 +49,15 @@ def webhook():
     customer_id = event["data"]["object"]["customer"]
 
     # DynamoDBからカスタマーIDに紐づくCognitoユーザーIDを取り出す
-    result = customer_table.get_item(Key={"CustomerID": customer_id})
-    user_id = result["Item"]["UserID"]
-    api_key_id = result["Item"]["APIKeyID"]
+    result = customer_table.get_item(Key={"CustomerId": customer_id})
+    user_id = result["Item"]["UserId"]
+    api_key_id = result["Item"]["ApiKeyId"]
 
     # APIキーを削除
     result = apigateway_cli.delete_api_key(apiKey=api_key_id)
 
     # DynamoDBからPRO版のAPIキーを削除
-    api_key_table.delete_item(Key={"UserID": user_id, "Type": "PRO"})
+    api_key_table.delete_item(Key={"UserId": user_id, "Type": "PRO"})
 
     # ユーザープールのカスタム属性を更新
     cognito_cli.admin_update_user_attributes(

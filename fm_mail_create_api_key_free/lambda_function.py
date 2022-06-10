@@ -47,7 +47,14 @@ def lambda_handler(event, context):
 
     # DynamoDBにAPIキーを登録
     with table.batch_writer() as batch:
-        batch.put_item(Item={"UserID": user_name, "Type": "FREE", "ApiKey": api_key})
+        batch.put_item(
+            Item={
+                "UserId": user_name,
+                "Type": "FREE",
+                "ApiKey": api_key,
+                "ApiKeyId": api_key_id,
+            }
+        )
 
     # eventを返さないとCognito側で「Unrecognizable lambda output」というエラーになる
     return event
